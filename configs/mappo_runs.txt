@@ -1,0 +1,25 @@
+# One line per Slurm array task. Blank lines and # comments are ignored.
+# Columns:  ARM  MAP  OBS_SLICE  STEPS  SEED
+#
+# ARM        baseline | allfeat | chosenfeat
+# OBS_SLICE  "-" for the baseline (mechanism off); "all" hashes the whole
+#            observation; an index range hashes only the enemy block.
+#            VERIFIED per map: 3m -> 4:19   5m_vs_6m -> 4:34   3s_vs_5z -> 4:34
+# STEPS      10050000 matches the MAPPO paper ("at most 10M timesteps"), where
+#            MAPPO reaches 100.0 on 3m, 89.1 on 5m_vs_6m and 100.0 on 3s_vs_5z.
+#            EPyMARL's own protocol trains on-policy methods for 40M; change the
+#            value here to 40050000 for that, and raise --time in the slurm file.
+#
+# To add seeds, duplicate the block with a different final column.
+
+baseline    3m          -       10050000  1
+allfeat     3m          all     10050000  1
+chosenfeat  3m          4:19    10050000  1
+
+baseline    5m_vs_6m    -       10050000  1
+allfeat     5m_vs_6m    all     10050000  1
+chosenfeat  5m_vs_6m    4:34    10050000  1
+
+baseline    3s_vs_5z    -       10050000  1
+allfeat     3s_vs_5z    all     10050000  1
+chosenfeat  3s_vs_5z    4:34    10050000  1

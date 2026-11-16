@@ -1,0 +1,9 @@
+# Cluster-side artefacts: never commit these
+epymarl/
+.venv-cluster/
+StarCraftII/
+logs/
+results/
+*.zip
+__pycache__/
+*.pyc
