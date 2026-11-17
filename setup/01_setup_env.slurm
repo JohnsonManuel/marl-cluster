@@ -70,11 +70,26 @@ apptainer exec \
     "${image}" \
     "${venv}/bin/python" -m pip install --upgrade pip
 
+# Install EPyMARL's own requirements.txt rather than a hand-picked subset: it
+# imports gymnasium (and others) unconditionally in src/envs/__init__.py, even
+# for StarCraft runs, so a partial install fails at import time.
+#
+# Two edits to that file:
+#   - torch/torchvision are dropped. The container already provides torch built
+#     against CUDA 13, and the venv inherits it via --system-site-packages.
+#     Letting pip resolve torch here would shadow that with a different build.
+#   - the PyYAML==5.3.1 pin is relaxed. 5.3.1 does not build on the container's
+#     Python 3.12, and every yaml.load() in EPyMARL passes an explicit Loader,
+#     so PyYAML 6 behaves identically here.
+reqs="${project}/requirements-cluster.txt"
+grep -vE '^(torch|torchvision)\s*$' "${epymarl}/requirements.txt" \
+    | sed 's/^PyYAML==5\.3\.1$/PyYAML/' > "${reqs}"
+echo "[setup] installing $(grep -cvE '^\s*$' "${reqs}") python dependencies"
+
 apptainer exec \
     --bind /projects:/projects,/datasets:/datasets,/scratch:/scratch \
     "${image}" \
-    "${venv}/bin/python" -m pip install \
-        "sacred" "pyyaml" "pygame" "matplotlib" "scipy" "tensorboard-logger"
+    "${venv}/bin/python" -m pip install -r "${reqs}"
 
 # --- 3b. SMAC from a clone, not straight from git ------------------------------
 # "pip install git+...smac" installs the Python modules but silently drops the
@@ -125,6 +140,29 @@ for m in 3m 5m_vs_6m 3s_vs_5z; do
     fi
 done
 echo "[setup] required maps present: 3m, 5m_vs_6m, 3s_vs_5z"
+
+# --- 5. verify the import chain -------------------------------------------------
+# Cheap insurance: this is the exact chain that failed the first smoke test.
+echo "[setup] verifying imports"
+apptainer exec \
+    --bind /projects:/projects,/datasets:/datasets,/scratch:/scratch \
+    --env SC2PATH="${sc2dir}" \
+    "${image}" \
+    "${venv}/bin/python" -c "
+import sys
+sys.path.insert(0, '${epymarl}/src')
+import torch, numpy, yaml, gymnasium, sacred, smac
+from envs import REGISTRY as env_REGISTRY
+from runners import REGISTRY as r_REGISTRY
+from controllers import REGISTRY as mac_REGISTRY
+from components.shared_memory import SharedExplorationMemory
+print('torch      =', torch.__version__)
+print('numpy      =', numpy.__version__)
+print('pyyaml     =', yaml.__version__)
+print('gymnasium  =', gymnasium.__version__)
+print('envs       =', sorted(env_REGISTRY))
+print('imports ok')
+"
 
 echo "[setup] done"
 echo "[setup] SC2PATH will be ${sc2dir}"
