@@ -23,7 +23,15 @@ mkdir -p logs
 ### 2. One-time setup (no GPU, about 20-40 minutes)
 
 Clones EPyMARL at the pinned commit, copies the mechanism over it, builds a
-venv, installs SMAC, and downloads StarCraft II.
+venv, clones and installs SMAC, downloads StarCraft II, and installs the SMAC
+map pack.
+
+Note: SMAC is cloned and installed **editable** rather than with
+`pip install git+...`. The latter installs the Python modules but silently drops
+the `.SC2Map` files, because they are data rather than modules and are not
+declared as package data -- which leaves SMAC unable to load any map. The job
+now verifies that at least 20 maps and all three scenarios used here are present
+before it reports success.
 
 ```bash
 setup_id=$(sbatch --parsable "/projects/users/$USER/marl-cluster/setup/01_setup_env.slurm")
@@ -129,8 +137,8 @@ scripts/collect_results.sh    summarise finished runs
 mechanism/                    our modified EPyMARL files (copied over upstream)
 ```
 
-`epymarl/`, `.venv-cluster/`, `StarCraftII/`, `logs/` and `results/` are created
-on the cluster and are deliberately not tracked.
+`epymarl/`, `smac/`, `.venv-cluster/`, `StarCraftII/`, `logs/` and `results/` are
+created on the cluster and are deliberately not tracked.
 
 ## The mechanism
 

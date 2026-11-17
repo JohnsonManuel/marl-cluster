@@ -2,6 +2,7 @@
 epymarl/
 .venv-cluster/
 StarCraftII/
+smac/
 logs/
 results/
 *.zip

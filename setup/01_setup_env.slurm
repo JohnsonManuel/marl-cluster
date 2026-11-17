@@ -74,8 +74,23 @@ apptainer exec \
     --bind /projects:/projects,/datasets:/datasets,/scratch:/scratch \
     "${image}" \
     "${venv}/bin/python" -m pip install \
-        "sacred" "pyyaml" "pygame" "matplotlib" "scipy" "tensorboard-logger" \
-        "git+https://github.com/oxwhirl/smac.git"
+        "sacred" "pyyaml" "pygame" "matplotlib" "scipy" "tensorboard-logger"
+
+# --- 3b. SMAC from a clone, not straight from git ------------------------------
+# "pip install git+...smac" installs the Python modules but silently drops the
+# .SC2Map files: they are data, not modules, and SMAC does not declare them as
+# package data. Cloning and installing editable keeps the map pack on disk where
+# it can be copied into SC2PATH below.
+smac_src="${project}/smac"
+if [ ! -d "${smac_src}/.git" ]; then
+    echo "[setup] cloning SMAC"
+    git clone https://github.com/oxwhirl/smac.git "${smac_src}"
+fi
+
+apptainer exec \
+    --bind /projects:/projects,/datasets:/datasets,/scratch:/scratch \
+    "${image}" \
+    "${venv}/bin/python" -m pip install -e "${smac_src}"
 
 # --- 4. StarCraft II headless ---------------------------------------------------
 # SMAC needs the game binary and the SMAC map pack. The managed ML container does
@@ -90,12 +105,26 @@ if [ ! -d "${sc2dir}" ]; then
 fi
 
 mkdir -p "${sc2dir}/Maps"
-smac_maps="$(apptainer exec \
-    --bind /projects:/projects,/datasets:/datasets,/scratch:/scratch \
-    "${image}" \
-    "${venv}/bin/python" -c \
-    "import os, smac; print(os.path.join(os.path.dirname(smac.__file__), 'env', 'starcraft2', 'maps', 'SMAC_Maps'))")"
+smac_maps="${smac_src}/smac/env/starcraft2/maps/SMAC_Maps"
+if [ ! -d "${smac_maps}" ]; then
+    echo "[error] SMAC map pack missing at ${smac_maps}" >&2
+    exit 1
+fi
 cp -r "${smac_maps}" "${sc2dir}/Maps/"
+
+n_maps="$(ls -1 "${sc2dir}/Maps/SMAC_Maps" | wc -l)"
+echo "[setup] installed ${n_maps} SMAC maps"
+if [ "${n_maps}" -lt 20 ]; then
+    echo "[error] expected at least 20 maps, found ${n_maps}" >&2
+    exit 1
+fi
+for m in 3m 5m_vs_6m 3s_vs_5z; do
+    if [ ! -f "${sc2dir}/Maps/SMAC_Maps/${m}.SC2Map" ]; then
+        echo "[error] required map ${m}.SC2Map not installed" >&2
+        exit 1
+    fi
+done
+echo "[setup] required maps present: 3m, 5m_vs_6m, 3s_vs_5z"
 
 echo "[setup] done"
 echo "[setup] SC2PATH will be ${sc2dir}"
