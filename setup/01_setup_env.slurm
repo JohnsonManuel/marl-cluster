@@ -53,6 +53,52 @@ cp -v "${project}/mechanism/src/run.py"                          "${epymarl}/src
 cp -v "${project}/mechanism/src/runners/episode_runner.py"       "${epymarl}/src/runners/"
 cp -v "${project}/mechanism/src/runners/parallel_runner.py"      "${epymarl}/src/runners/"
 
+# --- 2b. make the SMAClite import lazy ------------------------------------------
+# src/envs/__init__.py imports smaclite_wrapper at module scope, so importing
+# ANY env fails without the smaclite package -- including SC2, which is all we
+# use. smaclite pulls Rtree==1.0.0, which needs the libspatialindex system
+# library and ships no Python 3.12 wheels, so installing it to satisfy an unused
+# import is the wrong trade.
+#
+# Instead, move the import inside smaclite_fn. This is the same lazy pattern
+# upstream already uses for StarCraft (see register_smac), so SMAClite still
+# works if the package is ever installed, and SC2 no longer depends on it.
+echo "[setup] making the SMAClite import lazy"
+apptainer exec \
+    --bind /projects:/projects,/datasets:/datasets,/scratch:/scratch \
+    "${image}" \
+    /usr/bin/python3 - "${epymarl}/src/envs/__init__.py" <<'PATCH'
+import sys, pathlib
+
+p = pathlib.Path(sys.argv[1])
+s = p.read_text()
+
+top_import = "from .smaclite_wrapper import SMACliteWrapper\n"
+fn_body = """def smaclite_fn(**kwargs) -> MultiAgentEnv:
+    kwargs = __check_and_prepare_smac_kwargs(kwargs)
+    return SMACliteWrapper(**kwargs)"""
+fn_lazy = """def smaclite_fn(**kwargs) -> MultiAgentEnv:
+    from .smaclite_wrapper import SMACliteWrapper
+
+    kwargs = __check_and_prepare_smac_kwargs(kwargs)
+    return SMACliteWrapper(**kwargs)"""
+
+# Idempotent: setup is rerun routinely and the clone persists between runs.
+# Checking for the patched function body is unambiguous, whereas the bare import
+# string is a substring of its own indented form.
+if fn_lazy in s:
+    print("[patch] already lazy, nothing to do")
+    sys.exit(0)
+
+assert "\n" + top_import in s, "top-level smaclite import not found"
+assert fn_body in s, "smaclite_fn body not found"
+
+s = s.replace("\n" + top_import, "\n", 1)
+s = s.replace(fn_body, fn_lazy, 1)
+p.write_text(s)
+print("[patch] smaclite import moved into smaclite_fn")
+PATCH
+
 # --- 3. venv inheriting the container's torch ----------------------------------
 # --system-site-packages means the container's torch/CUDA build is reused rather
 # than a second copy being installed into the venv.
@@ -160,6 +206,9 @@ print('torch      =', torch.__version__)
 print('numpy      =', numpy.__version__)
 print('pyyaml     =', yaml.__version__)
 print('gymnasium  =', gymnasium.__version__)
+import envs
+envs.register_smac()
+assert 'sc2' in env_REGISTRY, 'sc2 env failed to register'
 print('envs       =', sorted(env_REGISTRY))
 print('imports ok')
 "
