@@ -47,7 +47,9 @@ project="/projects/users/${USER}/marl-cluster"
 image="/datasets/containers/ml-workspace.sif"
 epymarl="${project}/epymarl"
 venv="${project}/.venv-cluster"
-config="${project}/configs/mappo_runs.txt"
+# RUNS_CONFIG selects the budget set; pass it with
+#   sbatch --export=ALL,RUNS_CONFIG=configs/mappo_runs_40m.txt ...
+config="${project}/${RUNS_CONFIG:-configs/mappo_runs.txt}"
 
 export SC2PATH="${project}/StarCraftII"
 
@@ -62,10 +64,11 @@ if [ -z "${line}" ]; then
     echo "[error] no configuration for array index ${SLURM_ARRAY_TASK_ID} in ${config}" >&2
     exit 1
 fi
-read -r ARM MAP OBS_SLICE STEPS SEED <<< "${line}"
+read -r ARM MAP OBS_SLICE STEPS SEED TEST_INTERVAL <<< "${line}"
+: "${TEST_INTERVAL:=20000}"
 
 echo "[run] array task ${SLURM_ARRAY_TASK_ID}"
-echo "[run] arm=${ARM} map=${MAP} slice=${OBS_SLICE} steps=${STEPS} seed=${SEED}"
+echo "[run] arm=${ARM} map=${MAP} slice=${OBS_SLICE} steps=${STEPS} seed=${SEED} test_interval=${TEST_INTERVAL}"
 echo "[run] host=$(hostname)"
 
 # --- build the mechanism flags ------------------------------------------------
@@ -85,7 +88,7 @@ else
     )
 fi
 
-results="${project}/results/${MAP}_${ARM}_s${SEED}"
+results="${project}/results/${MAP}_${ARM}_s${SEED}_${STEPS}"
 mkdir -p "${results}"
 cd "${epymarl}"
 
@@ -100,7 +103,7 @@ srun apptainer exec --nv \
         with "env_args.map_name=${MAP}" \
              "t_max=${STEPS}" \
              test_nepisode=32 \
-             test_interval=20000 \
+             "test_interval=${TEST_INTERVAL}" \
              standardise_returns=True \
              save_model=True \
              save_model_interval=1000000 \

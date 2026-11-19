@@ -1,0 +1,27 @@
+# One line per Slurm array task. Blank lines and # comments are ignored.
+# Columns:  ARM  MAP  OBS_SLICE  STEPS  SEED  TEST_INTERVAL
+#
+# 40.05M is EPyMARL's own protocol for SMAC. Papoudakis et al. (2021), Sec. 4.1:
+# "in SMAC and RWARE, we train on-policy and off-policy algorithms for 40 and
+# four million timesteps, respectively", to account for on-policy methods being
+# a factor of ten less sample efficient.
+#
+# For reference, the MAPPO paper reports its own figures at 10M: 100.0 on 3m,
+# 89.1 on 5m_vs_6m, 100.0 on 3s_vs_5z. The 10.05M set in mappo_runs.txt matches
+# that; this set tests whether the longer budget EPyMARL prescribes changes the
+# picture.
+#
+# test_interval is 200000 so each run still produces about 200 evaluation
+# points, keeping evaluation overhead proportionate to the budget.
+
+baseline    3m          -       40050000  1  200000
+allfeat     3m          all     40050000  1  200000
+chosenfeat  3m          4:19    40050000  1  200000
+
+baseline    5m_vs_6m    -       40050000  1  200000
+allfeat     5m_vs_6m    all     40050000  1  200000
+chosenfeat  5m_vs_6m    4:34    40050000  1  200000
+
+baseline    3s_vs_5z    -       40050000  1  200000
+allfeat     3s_vs_5z    all     40050000  1  200000
+chosenfeat  3s_vs_5z    4:34    40050000  1  200000

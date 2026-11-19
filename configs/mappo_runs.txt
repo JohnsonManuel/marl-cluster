@@ -1,5 +1,5 @@
 # One line per Slurm array task. Blank lines and # comments are ignored.
-# Columns:  ARM  MAP  OBS_SLICE  STEPS  SEED
+# Columns:  ARM  MAP  OBS_SLICE  STEPS  SEED  TEST_INTERVAL
 #
 # ARM        baseline | allfeat | chosenfeat
 # OBS_SLICE  "-" for the baseline (mechanism off); "all" hashes the whole
@@ -12,14 +12,14 @@
 #
 # To add seeds, duplicate the block with a different final column.
 
-baseline    3m          -       10050000  1
-allfeat     3m          all     10050000  1
-chosenfeat  3m          4:19    10050000  1
+baseline    3m          -       10050000  1  20000
+allfeat     3m          all     10050000  1  20000
+chosenfeat  3m          4:19    10050000  1  20000
 
-baseline    5m_vs_6m    -       10050000  1
-allfeat     5m_vs_6m    all     10050000  1
-chosenfeat  5m_vs_6m    4:34    10050000  1
+baseline    5m_vs_6m    -       10050000  1  20000
+allfeat     5m_vs_6m    all     10050000  1  20000
+chosenfeat  5m_vs_6m    4:34    10050000  1  20000
 
-baseline    3s_vs_5z    -       10050000  1
-allfeat     3s_vs_5z    all     10050000  1
-chosenfeat  3s_vs_5z    4:34    10050000  1
+baseline    3s_vs_5z    -       10050000  1  20000
+allfeat     3s_vs_5z    all     10050000  1  20000
+chosenfeat  3s_vs_5z    4:34    10050000  1  20000

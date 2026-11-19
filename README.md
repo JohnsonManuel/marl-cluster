@@ -131,7 +131,34 @@ the spread of whatever the action selector adds it to and rescales novelty
 across the available actions. Measured after the change: the bonus is about 5%
 of the value spread and grows with it, rather than vanishing.
 
-## The training budget
+## Two budgets
+
+| Config | Steps | Rationale |
+|---|---|---|
+| `configs/mappo_runs.txt` | 10.05M | the budget the MAPPO paper reports its own SMAC figures at (100.0 on `3m`, 89.1 on `5m_vs_6m`, 100.0 on `3s_vs_5z`) |
+| `configs/mappo_runs_40m.txt` | 40.05M | EPyMARL's own protocol: "in SMAC and RWARE, we train on-policy and off-policy algorithms for 40 and four million timesteps, respectively" |
+
+Select the set at submission time:
+
+```bash
+sbatch slurm/mappo_array.slurm                                               # 10.05M
+sbatch --export=ALL,RUNS_CONFIG=configs/mappo_runs_40m.txt slurm/mappo_array.slurm   # 40.05M
+```
+
+Run the 10.05M set first. It is the one with published figures to check the
+baseline against, and at roughly 2.5 h per task it reports back in about a day,
+whereas the 40.05M set is around 9 h per task.
+
+### Remaining deviations from the MAPPO paper
+
+`standardise_returns=True` supplies value normalisation, the factor their paper
+weights most heavily and the one EPyMARL disables. Two of their other five
+factors still differ: EPyMARL uses 4 training epochs where the paper suggests 15
+for easy and 5 for hard scenarios, and it clips gradients (`grad_norm_clip: 10`)
+but does not clip the value loss itself. These are left alone deliberately, so
+that one change is being tested rather than four at once.
+
+## The training budget (historical note)
 
 The configuration uses **10,050,000 steps**, matching the MAPPO paper's "at most
 10M training timesteps", at which it reports 100.0 on `3m`, 89.1 on `5m_vs_6m`
