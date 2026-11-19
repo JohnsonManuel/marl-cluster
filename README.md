@@ -102,8 +102,34 @@ algorithm, network, schedule, budget, seed and evaluation protocol. The baseline
 receives no `sm_*` flags at all.
 
 Common settings: `sm_count_mode=per_agent`, `sm_combine=minimum`,
-`sm_select_beta=0.1`, `sm_hash_dim=16`, annealing over the full run,
-32 evaluation episodes every 20,000 steps, dense reward, seed 1.
+`sm_select_beta=0.1`, `sm_hash_dim=16`, `sm_bonus_scaling=relative`, annealing
+over the full run, 32 evaluation episodes every 20,000 steps, dense reward,
+seed 1. `standardise_returns=True` is applied to **every** arm, baseline
+included.
+
+## Corrections after the 2026-11-19 runs
+
+The first full set (array 321) was invalid. Both faults are recorded here so the
+configuration is not silently reverted.
+
+**MAPPO diverged.** `standardise_returns` defaults to `False` in EPyMARL, so
+value normalisation was off. The critic grew across seven orders of magnitude
+(`critic_loss` 4.3 to 7.8e7, final `q_taken_mean` -45,574 where SMAC scales the
+maximum return to about 20), and every arm including the untouched baselines
+scored 0.0 on both hard scenarios. The `3m` runs never stabilised at any point,
+oscillating between 0.00 and 0.91 for the whole 10M steps. Value normalisation
+is one of the five implementation factors MAPPO's own paper identifies as
+critical. Fixed by `standardise_returns=True` on every arm.
+
+**The mechanism was inert.** With an absolute `beta`, the bonus decayed to about
+0.004% of the value scale once counts reached the hundreds, and `beta=0.1` meant
+a 9x different perturbation per scenario because `q_taken_mean` ranged from 0.87
+to 8.05. `sm_redundancy_ratio` was identical across arms (0.7673 against
+0.7714), so the diagnostic built to measure the thesis's own claim showed no
+effect. Fixed by `sm_bonus_scaling=relative`, which measures the bonus against
+the spread of whatever the action selector adds it to and rescales novelty
+across the available actions. Measured after the change: the bonus is about 5%
+of the value spread and grows with it, rather than vanishing.
 
 ## The training budget
 

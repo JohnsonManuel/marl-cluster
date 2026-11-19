@@ -79,6 +79,12 @@ class BasicMAC:
                                 obs_np[i, a], n_actions, a
                             )
             novelty_bonus = th.as_tensor(bonus, device=ep_batch.device)
+            if active_read and getattr(
+                self.args, "sm_bonus_scaling", "absolute"
+            ) == "relative":
+                novelty_bonus = self._scale_bonus_to_decision_spread(
+                    novelty_bonus, agent_outputs[bs], avail_actions[bs], sm_scale
+                )
 
         chosen_actions = self.action_selector.select_action(
             agent_outputs[bs],
@@ -101,6 +107,67 @@ class BasicMAC:
                         )
 
         return chosen_actions
+
+    def _scale_bonus_to_decision_spread(self, bonus, outputs, avail, sm_scale):
+        """Express the novelty bonus as a fraction of the agent's own decision spread.
+
+        An absolute beta is not comparable across scenarios. Measured on the runs of
+        2026-11-19, ``q_taken_mean`` was 0.87 on ``5m_vs_6m`` against 8.05 on
+        ``3s_vs_5z``, so one beta meant a 9x different perturbation per map. Worse, the
+        ``1/sqrt(N+1)`` term shrank the raw bonus to roughly 0.004% of the Q-scale once
+        counts reached the hundreds, leaving the mechanism numerically inert.
+
+        Two changes fix both problems. The bonus is measured against the spread of the
+        quantity the action selector actually adds it to -- Q-values for epsilon-greedy,
+        log-probabilities for the policy-gradient selector, which multiplies by
+        ``exp(bonus)`` and so adds to logits. And novelty is rescaled across the
+        available actions, so the most novel one receives the full ``beta * spread``
+        and the least novel receives zero, regardless of how large the counts have
+        grown. What survives is the *ordering* of novelty, which is the part that
+        should steer the choice; its absolute magnitude, which only ever reflected how
+        long training had run, does not.
+
+        The influence on the argmax is then invariant to reward scale and stays
+        meaningful for the whole run, while remaining bounded by beta.
+        """
+        beta = float(getattr(self.args, "sm_select_beta", 0.1))
+        avail_b = avail == 0
+        big = 1e20
+
+        # The selector adds the bonus to Q-values directly, but multiplies
+        # probabilities by exp(bonus), which is an addition in log space.
+        if getattr(self.args, "agent_output_type", "q") == "pi_logits":
+            decision = th.log(outputs.clamp(min=1e-8))
+        else:
+            decision = outputs
+
+        d_hi = decision.masked_fill(avail_b, -big).max(dim=-1).values
+        d_lo = decision.masked_fill(avail_b, big).min(dim=-1).values
+        spread = (d_hi - d_lo).clamp(min=0.0).unsqueeze(-1)       # (bs, n_agents, 1)
+
+        b_hi = bonus.masked_fill(avail_b, -big).max(dim=-1, keepdim=True).values
+        b_lo = bonus.masked_fill(avail_b, big).min(dim=-1, keepdim=True).values
+        b_norm = ((bonus - b_lo) / (b_hi - b_lo).clamp(min=1e-12)).clamp(0.0, 1.0)
+        b_norm = b_norm * avail.float()
+
+        scaled = sm_scale * beta * spread * b_norm
+
+        # Diagnostics: these make inertness visible within minutes instead of after a
+        # full run. Averaged only over agents that actually have a choice, and smoothed.
+        # A dead or pinned agent has a single available action, so its spread is zero by
+        # definition; the runner reads these at episode end, which is exactly when most
+        # agents are in that state, so an unfiltered last-value reading always reports 0.
+        with th.no_grad():
+            choosing = avail.sum(dim=-1) > 1
+            if bool(choosing.any()):
+                sp = float(spread.squeeze(-1)[choosing].mean().item())
+                bm = float(scaled.max(dim=-1).values[choosing].mean().item())
+                a = 0.01
+                prev_sp = getattr(self, "sm_last_decision_spread", None)
+                prev_bm = getattr(self, "sm_last_bonus_max", None)
+                self.sm_last_decision_spread = sp if prev_sp is None else (1 - a) * prev_sp + a * sp
+                self.sm_last_bonus_max = bm if prev_bm is None else (1 - a) * prev_bm + a * bm
+        return scaled
 
     def forward(self, ep_batch, t, test_mode=False):
         agent_inputs = self._build_inputs(ep_batch, t)

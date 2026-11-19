@@ -75,6 +75,14 @@ sm_obs_slice: "all"
 # Linear decay of the novelty bonus's influence over training, adapted from CMAE
 # (Liu et al. 2021, Alg. 1: actions come from "alpha*mu + (1-alpha)*pi" with "alpha
 # decreases linearly to 0"). We have no separate exploration policy, so instead the
+# How the active-selection bonus is scaled. "absolute" is the original behaviour:
+# the bonus is beta/sqrt(N+1) in raw units, which is not comparable across scenarios
+# (q_taken_mean was 0.87 on 5m_vs_6m against 8.05 on 3s_vs_5z) and decays to ~0.004%
+# of the Q-scale once counts reach the hundreds, leaving the mechanism inert.
+# "relative" measures the bonus against the spread of the agent's own outputs over its
+# available actions, and rescales novelty so the most novel available action receives
+# beta * spread. Scale-invariant across maps, and does not vanish as counts grow.
+sm_bonus_scaling: "absolute"
 # bonus is multiplied by alpha = max(0, 1 - t_env / sm_beta_anneal_time).
 # Rationale: the 1/sqrt(N+1) term only decays for buckets that are REVISITED. New
 # obs-buckets keep appearing throughout training (measured: 2445-4654 still being

@@ -24,6 +24,21 @@ set -euo pipefail
 #                    guide caps requests at 60000M (which is NOT 60G)
 #   --time           24h fits 10M steps with headroom. Raise it for 40M.
 #
+# Two corrections applied after the 2026-11-19 runs, which were invalid:
+#
+#   standardise_returns=True   Value normalisation, on EVERY arm including the
+#                              baseline. EPyMARL ships it disabled; MAPPO's own
+#                              paper names it one of five critical factors.
+#                              Without it the critic diverged across seven orders
+#                              of magnitude (critic_loss 4.3 -> 7.8e7) and every
+#                              arm, baselines included, produced 0.0 on both hard
+#                              scenarios.
+#
+#   sm_bonus_scaling=relative  Mechanism arms only. The absolute bonus decayed to
+#                              ~0.004% of the value scale, so the mechanism was
+#                              numerically inert. The bonus is now a fraction of
+#                              the spread of the quantity the selector adds it to.
+#
 # Submit only after 01_setup_env.slurm and 02_smoke_test.slurm have both
 # succeeded.
 # ==============================================================================
@@ -65,6 +80,7 @@ else
         "sm_obs_slice=${OBS_SLICE}"
         sm_select_beta=0.1
         sm_hash_dim=16
+        sm_bonus_scaling=relative
         "sm_beta_anneal_time=${STEPS}"
     )
 fi
@@ -85,6 +101,7 @@ srun apptainer exec --nv \
              "t_max=${STEPS}" \
              test_nepisode=32 \
              test_interval=20000 \
+             standardise_returns=True \
              save_model=True \
              save_model_interval=1000000 \
              "local_results_path=${results}" \

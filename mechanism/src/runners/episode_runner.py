@@ -170,6 +170,10 @@ class EpisodeRunner:
                     "epsilon", self.mac.action_selector.epsilon, self.t_env
                 )
             if self.shared_memory is not None:
+                for _d in ("sm_last_decision_spread", "sm_last_bonus_max"):
+                    _v = getattr(self.mac, _d, None)
+                    if _v is not None:
+                        self.logger.log_stat("sm_" + _d[8:], float(_v), self.t_env)
                 sc = getattr(self.mac, "sm_last_scale", None)
                 if sc is not None:
                     self.logger.log_stat("sm_anneal_scale", float(sc), self.t_env)

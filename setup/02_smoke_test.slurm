@@ -63,6 +63,8 @@ srun apptainer exec --nv \
              sm_select_beta=0.1 \
              sm_hash_dim=16 \
              sm_beta_anneal_time=30000 \
+             sm_bonus_scaling=relative \
+             standardise_returns=True \
              seed=1
 
 echo "[smoke] finished"
