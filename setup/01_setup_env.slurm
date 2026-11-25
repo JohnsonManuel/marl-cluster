@@ -52,6 +52,8 @@ cp -v "${project}/mechanism/src/controllers/basic_controller.py" "${epymarl}/src
 cp -v "${project}/mechanism/src/run.py"                          "${epymarl}/src/"
 cp -v "${project}/mechanism/src/runners/episode_runner.py"       "${epymarl}/src/runners/"
 cp -v "${project}/mechanism/src/runners/parallel_runner.py"      "${epymarl}/src/runners/"
+mkdir -p "${epymarl}/src/utils"
+cp -v "${project}/mechanism/src/utils/logging.py"                "${epymarl}/src/utils/"
 # Two upstream bug fixes, not part of the mechanism. Both learners updated their
 # running mean/std statistics over UNMASKED batches, so padded timesteps polluted
 # them. This destroyed 5 of 9 MAPPO runs in array 337 (baselines included) and
@@ -144,14 +146,18 @@ apptainer exec \
     "${image}" \
     "${venv}/bin/python" -m pip install -r "${reqs}"
 
-# wandb, so cluster runs can be monitored from outside the university network.
+# trackio, so cluster runs can be monitored from outside the university network.
 # krull is on a private IP and unreachable from home, so metrics must be PUSHED
 # out rather than pulled. Compute nodes do have outbound internet -- this very
 # job downloads StarCraft II and installs from PyPI.
+#
+# trackio is wandb-API-compatible but logs to a Hugging Face Space, so it needs
+# an HF token rather than a wandb account. Requires Python >= 3.10; the managed
+# container is 3.12.
 apptainer exec \
     --bind /projects:/projects,/datasets:/datasets,/scratch:/scratch \
     "${image}" \
-    "${venv}/bin/python" -m pip install "wandb"
+    "${venv}/bin/python" -m pip install "trackio"
 
 # --- 3b. SMAC from a clone, not straight from git ------------------------------
 # "pip install git+...smac" installs the Python modules but silently drops the

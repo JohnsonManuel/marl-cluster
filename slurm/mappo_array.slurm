@@ -53,40 +53,45 @@ config="${project}/${RUNS_CONFIG:-configs/mappo_runs.txt}"
 
 export SC2PATH="${project}/StarCraftII"
 
-# --- optional Weights & Biases monitoring -------------------------------------
+# --- optional Trackio monitoring ----------------------------------------------
 # krull sits on a private university IP and cannot be reached from home, so there
-# is no way to PULL logs remotely. wandb pushes metrics out to a web dashboard
-# instead, readable from anywhere including a phone.
+# is no way to PULL logs remotely. Trackio pushes metrics to a Hugging Face Space
+# instead, readable from anywhere including a phone. It is wandb-API-compatible
+# but needs an HF token, not a wandb account.
 #
-# Credentials live in .wandb_env, which is NOT tracked (this repo is public).
+# Credentials live in .hf_env, which is NOT tracked (this repo is public).
 # Create it once on the cluster:
 #
-#   cat > /projects/users/$USER/marl-cluster/.wandb_env <<'EOF'
-#   export WANDB_API_KEY=<your key from https://wandb.ai/authorize>
-#   export WANDB_ENTITY=<your wandb username>
-#   export WANDB_PROJECT=marl-shared-memory
+#   cat > /projects/users/$USER/marl-cluster/.hf_env <<'EOF'
+#   export HF_TOKEN=<write-scoped token from huggingface.co/settings/tokens>
+#   export TRACKIO_SPACE_ID=<your-hf-username>/marl-shared-memory
+#   export TRACKIO_PROJECT=marl-shared-memory
 #   EOF
-#   chmod 600 /projects/users/$USER/marl-cluster/.wandb_env
+#   chmod 600 /projects/users/$USER/marl-cluster/.hf_env
 #
-# Without that file the runs proceed exactly as before, just unmonitored.
-WANDB_ARGS=()
-if [ -f "${project}/.wandb_env" ]; then
+# The Space is created automatically on the first run. Without the file the runs
+# proceed exactly as before, just unmonitored.
+TRACKIO_ARGS=()
+if [ -f "${project}/.hf_env" ]; then
     # shellcheck disable=SC1090
-    . "${project}/.wandb_env"
-    if [ -n "${WANDB_API_KEY:-}" ] && [ -n "${WANDB_ENTITY:-}" ]; then
-        export WANDB_API_KEY WANDB_ENTITY WANDB_PROJECT
-        WANDB_ARGS=(
-            use_wandb=True
-            wandb_mode=online
-            "wandb_team=${WANDB_ENTITY}"
-            "wandb_project=${WANDB_PROJECT:-marl-shared-memory}"
+    . "${project}/.hf_env"
+    if [ -n "${HF_TOKEN:-}" ]; then
+        export HF_TOKEN
+        TRACKIO_ARGS=(
+            use_trackio=True
+            "trackio_project=${TRACKIO_PROJECT:-marl-shared-memory}"
         )
-        echo "[run] wandb enabled: ${WANDB_ENTITY}/${WANDB_PROJECT:-marl-shared-memory}"
+        if [ -n "${TRACKIO_SPACE_ID:-}" ]; then
+            TRACKIO_ARGS+=("trackio_space_id=${TRACKIO_SPACE_ID}")
+            echo "[run] trackio -> ${TRACKIO_SPACE_ID}"
+        else
+            echo "[run] trackio enabled, local only (no TRACKIO_SPACE_ID)"
+        fi
     else
-        echo "[run] .wandb_env present but incomplete; wandb disabled" >&2
+        echo "[run] .hf_env present but HF_TOKEN empty; trackio disabled" >&2
     fi
 else
-    echo "[run] no .wandb_env; wandb disabled"
+    echo "[run] no .hf_env; trackio disabled"
 fi
 
 # One SC2 instance per core; without this, each of the 10 workers spawns its own
@@ -134,9 +139,7 @@ srun apptainer exec --nv \
     --env SC2PATH="${SC2PATH}" \
     --env OMP_NUM_THREADS=1 \
     --env MKL_NUM_THREADS=1 \
-    --env WANDB_API_KEY="${WANDB_API_KEY:-}" \
-    --env WANDB_ENTITY="${WANDB_ENTITY:-}" \
-    --env WANDB_PROJECT="${WANDB_PROJECT:-}" \
+    --env HF_TOKEN="${HF_TOKEN:-}" \
     --bind /projects:/projects,/datasets:/datasets,/scratch:/scratch \
     "${image}" \
     "${venv}/bin/python" "${epymarl}/src/main.py" \
@@ -154,6 +157,6 @@ srun apptainer exec --nv \
              "local_results_path=${results}" \
              "seed=${SEED}" \
              "${MECH_ARGS[@]}" \
-             "${WANDB_ARGS[@]}"
+             "${TRACKIO_ARGS[@]}"
 
 echo "[run] finished arm=${ARM} map=${MAP} seed=${SEED}"

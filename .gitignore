@@ -10,6 +10,8 @@ __pycache__/
 *.pyc
 requirements-cluster.txt
 
-# wandb credentials -- never commit (this repo is public)
+# tracker credentials -- never commit (this repo is public)
+.hf_env
 .wandb_env
 wandb/
+.trackio/

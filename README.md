@@ -203,32 +203,51 @@ of the value spread and grows with it, rather than vanishing.
 ## Monitoring from outside the university network
 
 krull has a private university IP and cannot be reached from home, so logs
-cannot be pulled remotely. wandb pushes metrics out to a web dashboard instead,
-readable from anywhere including a phone. Compute nodes do have outbound
-internet -- the setup job itself downloads StarCraft II and installs from PyPI.
+cannot be pulled while a multi-day array runs. [Trackio](https://huggingface.co/docs/trackio/index)
+pushes metrics out to a Hugging Face Space instead, readable from anywhere
+including a phone. Compute nodes do have outbound internet -- the setup job
+itself downloads StarCraft II and installs from PyPI.
+
+Trackio is API-compatible with `wandb.init/log/finish` but logs to your own HF
+Space, so it needs a **Hugging Face** token, not a wandb account. It is free,
+including the hosting.
 
 Create the credentials file once, on the cluster:
 
 ```bash
-cat > /projects/users/$USER/marl-cluster/.wandb_env <<'EOF'
-export WANDB_API_KEY=<your key from https://wandb.ai/authorize>
-export WANDB_ENTITY=<your wandb username>
-export WANDB_PROJECT=marl-shared-memory
+cat > /projects/users/$USER/marl-cluster/.hf_env <<'EOF'
+export HF_TOKEN=<write-scoped token from huggingface.co/settings/tokens>
+export TRACKIO_SPACE_ID=<your-hf-username>/marl-shared-memory
+export TRACKIO_PROJECT=marl-shared-memory
 EOF
-chmod 600 /projects/users/$USER/marl-cluster/.wandb_env
+chmod 600 /projects/users/$USER/marl-cluster/.hf_env
 ```
 
-`.wandb_env` is gitignored. **Never commit it -- this repository is public.**
+The token must have **write** permission, since Trackio creates the Space on the
+first run. `.hf_env` is gitignored -- **never commit it, this repository is
+public.**
 
 With the file present, every array task streams `test_battle_won_mean`,
-`critic_loss`, `q_taken_mean`, `sm_bonus_max` and the rest to
-`wandb.ai/<entity>/<project>`, with all nine runs on shared axes. Without it the
-runs proceed exactly as before, just unmonitored, so the file is optional.
+`critic_loss`, `q_taken_mean`, `sm_bonus_max` and the rest to the Space, with
+runs grouped by algorithm, scenario and config hash. Without it the runs proceed
+exactly as before, just unmonitored, so the file is optional.
 
-Note that wandb is enabled at submission time. A run already in the queue cannot
-be retrofitted.
+Trackio is enabled at submission time; a run already in the queue cannot be
+retrofitted.
 
-## Two budgets
+### How it is wired
+
+`src/utils/logging.py` gains a `setup_trackio` method. It cannot reuse
+`setup_wandb`, because Trackio's `init()` accepts neither `entity` nor `mode`.
+The per-timestep batching in `log_stat` is shared rather than duplicated, so
+`use_wandb` doubles as the "stream to a tracker" flag.
+
+Verified against Trackio 0.45.1 on Python 3.12: `Run.log(metrics, step=)` matches
+EPyMARL's call exactly, and `run.id` exists for the console line. Trackio needs
+Python >= 3.10; the managed container is 3.12, while the local conda env is 3.8
+and cannot run it.
+
+## Two budgets## Two budgets
 
 | Config | Steps | Rationale |
 |---|---|---|

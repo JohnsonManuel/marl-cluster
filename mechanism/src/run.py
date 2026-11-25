@@ -61,6 +61,16 @@ def run(_run, _config, _log):
             _config, args.wandb_team, args.wandb_project, args.wandb_mode
         )
 
+    if getattr(args, "use_trackio", False):
+        assert not args.use_wandb, (
+            "use_trackio and use_wandb both set; pick one tracker."
+        )
+        logger.setup_trackio(
+            _config,
+            getattr(args, "trackio_project", None),
+            getattr(args, "trackio_space_id", None),
+        )
+
     # sacred is on by default
     logger.setup_sacred(_run)
 

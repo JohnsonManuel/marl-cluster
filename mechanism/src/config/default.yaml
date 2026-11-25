@@ -21,6 +21,13 @@ buffer_cpu_only: True # If true we won't keep all of the replay buffer in vram
 # --- Logging options ---
 use_tensorboard: False # Log results to tensorboard
 use_wandb: False # Log results to W&B
+# Trackio (huggingface/trackio): a free, wandb-API-compatible tracker that logs to
+# a Hugging Face Space. Used instead of W&B because krull is on a private
+# university IP and cannot be reached from home, so a running job cannot be
+# monitored by pulling logs -- metrics have to be pushed out.
+use_trackio: False # Log results to Trackio
+trackio_project: "marl-shared-memory" # Trackio project name
+trackio_space_id: null # "<hf-user>/<space>" to host on HF Spaces; null logs locally
 wandb_team: null # W&B team name
 wandb_project: null # W&B project name
 wandb_mode: "offline" # W&B mode (online/offline)
