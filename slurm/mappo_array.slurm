@@ -64,11 +64,13 @@ if [ -z "${line}" ]; then
     echo "[error] no configuration for array index ${SLURM_ARRAY_TASK_ID} in ${config}" >&2
     exit 1
 fi
-read -r ARM MAP OBS_SLICE STEPS SEED TEST_INTERVAL <<< "${line}"
+read -r ARM MAP OBS_SLICE STEPS SEED TEST_INTERVAL EPOCHS CLIP <<< "${line}"
 : "${TEST_INTERVAL:=20000}"
+: "${EPOCHS:=15}"
+: "${CLIP:=0.2}"
 
 echo "[run] array task ${SLURM_ARRAY_TASK_ID}"
-echo "[run] arm=${ARM} map=${MAP} slice=${OBS_SLICE} steps=${STEPS} seed=${SEED} test_interval=${TEST_INTERVAL}"
+echo "[run] arm=${ARM} map=${MAP} slice=${OBS_SLICE} steps=${STEPS} seed=${SEED} test_interval=${TEST_INTERVAL} epochs=${EPOCHS} clip=${CLIP}"
 echo "[run] host=$(hostname)"
 
 # --- build the mechanism flags ------------------------------------------------
@@ -105,6 +107,9 @@ srun apptainer exec --nv \
              test_nepisode=32 \
              "test_interval=${TEST_INTERVAL}" \
              standardise_returns=True \
+             lr=0.0005 \
+             "epochs=${EPOCHS}" \
+             "eps_clip=${CLIP}" \
              save_model=True \
              save_model_interval=1000000 \
              "local_results_path=${results}" \

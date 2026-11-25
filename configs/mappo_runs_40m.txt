@@ -1,5 +1,16 @@
 # One line per Slurm array task. Blank lines and # comments are ignored.
-# Columns:  ARM  MAP  OBS_SLICE  STEPS  SEED  TEST_INTERVAL
+# Columns:  ARM  MAP  OBS_SLICE  STEPS  SEED  TEST_INTERVAL  EPOCHS  CLIP
+#
+# EPOCHS and CLIP are per scenario, from Table 17 of Yu et al. (2022):
+#   3m        epochs 15, clip 0.2
+#   5m_vs_6m  epochs 10, clip 0.05
+#   3s_vs_5z  epochs 15, clip 0.05
+# EPyMARL defaults to epochs 4 and clip 0.2 for every map. That is below the
+# paper's own Suggestion 3 (10-15 epochs) and 4x their trust region on both hard
+# maps. lr is raised to 5e-4 in the Slurm script, also per Table 17.
+#
+# Known remaining deviation: the paper uses an MLP with 4 stacked frames on
+# 3s_vs_5z where we use the recurrent agent; EPyMARL has no frame stacking.
 #
 # 40.05M is EPyMARL's own protocol for SMAC. Papoudakis et al. (2021), Sec. 4.1:
 # "in SMAC and RWARE, we train on-policy and off-policy algorithms for 40 and
@@ -14,14 +25,14 @@
 # test_interval is 200000 so each run still produces about 200 evaluation
 # points, keeping evaluation overhead proportionate to the budget.
 
-baseline    3m          -       40050000  1  200000
-allfeat     3m          all     40050000  1  200000
-chosenfeat  3m          4:19    40050000  1  200000
+baseline    3m          -       40050000  1  200000  15  0.2
+allfeat     3m          all     40050000  1  200000  15  0.2
+chosenfeat  3m          4:19    40050000  1  200000  15  0.2
 
-baseline    5m_vs_6m    -       40050000  1  200000
-allfeat     5m_vs_6m    all     40050000  1  200000
-chosenfeat  5m_vs_6m    4:34    40050000  1  200000
+baseline    5m_vs_6m    -       40050000  1  200000  10  0.05
+allfeat     5m_vs_6m    all     40050000  1  200000  10  0.05
+chosenfeat  5m_vs_6m    4:34    40050000  1  200000  10  0.05
 
-baseline    3s_vs_5z    -       40050000  1  200000
-allfeat     3s_vs_5z    all     40050000  1  200000
-chosenfeat  3s_vs_5z    4:34    40050000  1  200000
+baseline    3s_vs_5z    -       40050000  1  200000  15  0.05
+allfeat     3s_vs_5z    all     40050000  1  200000  15  0.05
+chosenfeat  3s_vs_5z    4:34    40050000  1  200000  15  0.05

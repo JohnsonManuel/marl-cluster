@@ -107,6 +107,75 @@ over the full run, 32 evaluation episodes every 20,000 steps, dense reward,
 seed 1. `standardise_returns=True` is applied to **every** arm, baseline
 included.
 
+## Corrections after the 2026-11-26 runs (array 337)
+
+Array 337 lost 5 of 9 runs, baselines included, and the 4 that completed scored
+0.0--0.66 against published figures of 89--100. Two separate causes, both found
+by reading the learner trajectories rather than guessing.
+
+### Upstream bug: running statistics updated over unmasked batches
+
+`ppo_learner.py` and `q_learner.py` called `rew_ms.update()` and
+`ret_ms.update()` on the full batch, including padded timesteps. SMAC episodes
+end at different times, so a large share of every batch is padding flagged by
+`batch["filled"]`, and padded entries hold zeros or stale bootstrap values -- a
+mass of near-identical numbers. That collapses the variance and biases the mean.
+At a measured variance of 6.6e-08 an ordinary target is amplified to about 3900,
+which destroys the network in one update and leaves NaN in the policy, where
+`Categorical` raises `ValueError: ... to satisfy the constraint Simplex()`.
+
+Every other use of the batch in those functions is masked -- the loss and both
+diagnostics -- and only the statistics updates were not. Evidence: `q_taken_mean`
+drifted monotonically 0.18 -> -15.3 on `5m_vs_6m` with `critic_grad_norm`
+reaching 106, while `337_1` crashed with a completely healthy critic, which is
+the one-bad-batch version of the same cause. Reproduced locally on CPU, so it is
+not a GPU artefact. **Still unfixed in upstream `main`.**
+
+Fixed by masking both updates in both learners. The patched files are vendored
+under `mechanism/src/learners/` and copied over upstream by the setup job.
+
+Note for the QMIX record: `standardise_rewards` defaults to `True`, so every
+QMIX run before this fix carried the reward-statistics bias. It applied
+identically to all arms, so within-set comparisons remain valid, but absolute
+values shift.
+
+### Statistics re-estimated every epoch
+
+`train_critic_sequential` is called inside `for k in range(self.args.epochs)`,
+so the statistics were re-estimated once per epoch rather than once per batch,
+compounding the drift. Algorithm 1 of Yu et al. (2022) computes the normalised
+reward-to-go once per rollout, before the update loop. Fixed with an
+`update_stats` flag set only on the first epoch.
+
+This also matters for the hyperparameters below: at the paper's recommended
+10--15 epochs, per-epoch updates would have compounded the drift 10--15x per
+batch, so adopting their settings without this fix would have made things worse.
+
+### Hyperparameters now follow Table 17
+
+| Map | epochs | clip | lr |
+|---|---|---|---|
+| `3m` | 15 | 0.2 | 5e-4 |
+| `5m_vs_6m` | 10 | 0.05 | 5e-4 |
+| `3s_vs_5z` | 15 | 0.05 | 5e-4 |
+
+EPyMARL defaults to epochs 4 and clip 0.2 everywhere, which is below the paper's
+own Suggestion 3 (10--15 epochs) and four times their trust region on both hard
+maps. Suggestion 4 is explicit that the clipping ratio should stay under 0.2.
+
+### Deviations knowingly retained
+
+Documented rather than changed, because changing them would mean the thesis is
+no longer running EPyMARL's MAPPO:
+
+- **n-step returns instead of GAE.** `ppo_learner` uses `nstep_returns` with
+  `q_nstep: 5`; the paper uses GAE.
+- **Advantages recomputed every epoch.** PPO requires advantages fixed with
+  respect to the behaviour policy during the epoch loop; EPyMARL recomputes them
+  from a freshly updated critic.
+- **No frame stacking.** Table 17 uses an MLP with 4 stacked frames on
+  `3s_vs_5z`; EPyMARL has no equivalent.
+
 ## Corrections after the 2026-11-19 runs
 
 The first full set (array 321) was invalid. Both faults are recorded here so the

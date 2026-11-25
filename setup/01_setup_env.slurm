@@ -52,6 +52,13 @@ cp -v "${project}/mechanism/src/controllers/basic_controller.py" "${epymarl}/src
 cp -v "${project}/mechanism/src/run.py"                          "${epymarl}/src/"
 cp -v "${project}/mechanism/src/runners/episode_runner.py"       "${epymarl}/src/runners/"
 cp -v "${project}/mechanism/src/runners/parallel_runner.py"      "${epymarl}/src/runners/"
+# Two upstream bug fixes, not part of the mechanism. Both learners updated their
+# running mean/std statistics over UNMASKED batches, so padded timesteps polluted
+# them. This destroyed 5 of 9 MAPPO runs in array 337 (baselines included) and
+# biased every QMIX run. Still unfixed in upstream main as of 2026-11-26.
+mkdir -p "${epymarl}/src/learners"
+cp -v "${project}/mechanism/src/learners/ppo_learner.py"         "${epymarl}/src/learners/"
+cp -v "${project}/mechanism/src/learners/q_learner.py"           "${epymarl}/src/learners/"
 
 # --- 2b. make the SMAClite import lazy ------------------------------------------
 # src/envs/__init__.py imports smaclite_wrapper at module scope, so importing
