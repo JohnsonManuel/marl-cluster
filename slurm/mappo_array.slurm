@@ -53,6 +53,42 @@ config="${project}/${RUNS_CONFIG:-configs/mappo_runs.txt}"
 
 export SC2PATH="${project}/StarCraftII"
 
+# --- optional Weights & Biases monitoring -------------------------------------
+# krull sits on a private university IP and cannot be reached from home, so there
+# is no way to PULL logs remotely. wandb pushes metrics out to a web dashboard
+# instead, readable from anywhere including a phone.
+#
+# Credentials live in .wandb_env, which is NOT tracked (this repo is public).
+# Create it once on the cluster:
+#
+#   cat > /projects/users/$USER/marl-cluster/.wandb_env <<'EOF'
+#   export WANDB_API_KEY=<your key from https://wandb.ai/authorize>
+#   export WANDB_ENTITY=<your wandb username>
+#   export WANDB_PROJECT=marl-shared-memory
+#   EOF
+#   chmod 600 /projects/users/$USER/marl-cluster/.wandb_env
+#
+# Without that file the runs proceed exactly as before, just unmonitored.
+WANDB_ARGS=()
+if [ -f "${project}/.wandb_env" ]; then
+    # shellcheck disable=SC1090
+    . "${project}/.wandb_env"
+    if [ -n "${WANDB_API_KEY:-}" ] && [ -n "${WANDB_ENTITY:-}" ]; then
+        export WANDB_API_KEY WANDB_ENTITY WANDB_PROJECT
+        WANDB_ARGS=(
+            use_wandb=True
+            wandb_mode=online
+            "wandb_team=${WANDB_ENTITY}"
+            "wandb_project=${WANDB_PROJECT:-marl-shared-memory}"
+        )
+        echo "[run] wandb enabled: ${WANDB_ENTITY}/${WANDB_PROJECT:-marl-shared-memory}"
+    else
+        echo "[run] .wandb_env present but incomplete; wandb disabled" >&2
+    fi
+else
+    echo "[run] no .wandb_env; wandb disabled"
+fi
+
 # One SC2 instance per core; without this, each of the 10 workers spawns its own
 # thread pool and they fight each other for the same cores.
 export OMP_NUM_THREADS=1
@@ -98,6 +134,9 @@ srun apptainer exec --nv \
     --env SC2PATH="${SC2PATH}" \
     --env OMP_NUM_THREADS=1 \
     --env MKL_NUM_THREADS=1 \
+    --env WANDB_API_KEY="${WANDB_API_KEY:-}" \
+    --env WANDB_ENTITY="${WANDB_ENTITY:-}" \
+    --env WANDB_PROJECT="${WANDB_PROJECT:-}" \
     --bind /projects:/projects,/datasets:/datasets,/scratch:/scratch \
     "${image}" \
     "${venv}/bin/python" "${epymarl}/src/main.py" \
@@ -114,6 +153,7 @@ srun apptainer exec --nv \
              save_model_interval=1000000 \
              "local_results_path=${results}" \
              "seed=${SEED}" \
-             "${MECH_ARGS[@]}"
+             "${MECH_ARGS[@]}" \
+             "${WANDB_ARGS[@]}"
 
 echo "[run] finished arm=${ARM} map=${MAP} seed=${SEED}"

@@ -9,3 +9,7 @@ results/
 __pycache__/
 *.pyc
 requirements-cluster.txt
+
+# wandb credentials -- never commit (this repo is public)
+.wandb_env
+wandb/

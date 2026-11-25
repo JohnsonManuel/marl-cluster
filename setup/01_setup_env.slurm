@@ -144,6 +144,15 @@ apptainer exec \
     "${image}" \
     "${venv}/bin/python" -m pip install -r "${reqs}"
 
+# wandb, so cluster runs can be monitored from outside the university network.
+# krull is on a private IP and unreachable from home, so metrics must be PUSHED
+# out rather than pulled. Compute nodes do have outbound internet -- this very
+# job downloads StarCraft II and installs from PyPI.
+apptainer exec \
+    --bind /projects:/projects,/datasets:/datasets,/scratch:/scratch \
+    "${image}" \
+    "${venv}/bin/python" -m pip install "wandb"
+
 # --- 3b. SMAC from a clone, not straight from git ------------------------------
 # "pip install git+...smac" installs the Python modules but silently drops the
 # .SC2Map files: they are data, not modules, and SMAC does not declare them as

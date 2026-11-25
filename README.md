@@ -200,6 +200,34 @@ the spread of whatever the action selector adds it to and rescales novelty
 across the available actions. Measured after the change: the bonus is about 5%
 of the value spread and grows with it, rather than vanishing.
 
+## Monitoring from outside the university network
+
+krull has a private university IP and cannot be reached from home, so logs
+cannot be pulled remotely. wandb pushes metrics out to a web dashboard instead,
+readable from anywhere including a phone. Compute nodes do have outbound
+internet -- the setup job itself downloads StarCraft II and installs from PyPI.
+
+Create the credentials file once, on the cluster:
+
+```bash
+cat > /projects/users/$USER/marl-cluster/.wandb_env <<'EOF'
+export WANDB_API_KEY=<your key from https://wandb.ai/authorize>
+export WANDB_ENTITY=<your wandb username>
+export WANDB_PROJECT=marl-shared-memory
+EOF
+chmod 600 /projects/users/$USER/marl-cluster/.wandb_env
+```
+
+`.wandb_env` is gitignored. **Never commit it -- this repository is public.**
+
+With the file present, every array task streams `test_battle_won_mean`,
+`critic_loss`, `q_taken_mean`, `sm_bonus_max` and the rest to
+`wandb.ai/<entity>/<project>`, with all nine runs on shared axes. Without it the
+runs proceed exactly as before, just unmonitored, so the file is optional.
+
+Note that wandb is enabled at submission time. A run already in the queue cannot
+be retrofitted.
+
 ## Two budgets
 
 | Config | Steps | Rationale |
