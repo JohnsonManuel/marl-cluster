@@ -24,6 +24,27 @@ epymarl="${project}/epymarl"
 venv="${project}/.venv-cluster"
 
 export SC2PATH="${project}/StarCraftII"
+
+# Trackio, so the smoke test proves the Hugging Face Space works BEFORE nine long
+# runs are queued behind it. Same .hf_env contract as slurm/mappo_array.slurm.
+TRACKIO_ARGS=()
+if [ -f "${project}/.hf_env" ]; then
+    # shellcheck disable=SC1090
+    . "${project}/.hf_env"
+    if [ -n "${HF_TOKEN:-}" ]; then
+        export HF_TOKEN
+        TRACKIO_ARGS=(
+            use_trackio=True
+            "trackio_project=${TRACKIO_PROJECT:-marl-shared-memory}-smoke"
+        )
+        if [ -n "${TRACKIO_SPACE_ID:-}" ]; then
+            TRACKIO_ARGS+=("trackio_space_id=${TRACKIO_SPACE_ID}")
+            echo "[smoke] trackio -> ${TRACKIO_SPACE_ID}"
+        fi
+    fi
+else
+    echo "[smoke] no .hf_env; trackio disabled"
+fi
 export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
 
@@ -47,6 +68,7 @@ srun apptainer exec --nv \
     --env SC2PATH="${SC2PATH}" \
     --env OMP_NUM_THREADS=1 \
     --env MKL_NUM_THREADS=1 \
+    --env HF_TOKEN="${HF_TOKEN:-}" \
     --bind /projects:/projects,/datasets:/datasets,/scratch:/scratch \
     "${image}" \
     "${venv}/bin/python" "${epymarl}/src/main.py" \
@@ -65,6 +87,7 @@ srun apptainer exec --nv \
              sm_beta_anneal_time=30000 \
              sm_bonus_scaling=relative \
              standardise_returns=True \
-             seed=1
+             seed=1 \
+             "${TRACKIO_ARGS[@]}"
 
 echo "[smoke] finished"
