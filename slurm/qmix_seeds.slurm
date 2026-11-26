@@ -6,7 +6,7 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=24
 #SBATCH --mem=60000M
-#SBATCH --time=2-00:00:00
+#SBATCH --time=4-00:00:00
 #SBATCH --output=/projects/users/%u/marl-cluster/logs/%x-%j.out
 #SBATCH --error=/projects/users/%u/marl-cluster/logs/%x-%j.err
 set -uo pipefail
@@ -31,8 +31,10 @@ set -uo pipefail
 # networks are small, every step must return to the CPU for the StarCraft engine
 # anyway, and avoiding --gres leaves the GPUs free and schedules sooner.
 #
-# --time=2-00:00:00 against a 5-day partition limit. Locally the 10.05M runs
-# took 24-27 h at similar contention.
+# --time=4-00:00:00 against a 5-day partition limit. Locally the 10.05M runs took
+# 24-27 h at 1.78 cores each; here it is 1.6 cores each, so slightly slower. A
+# TIMEOUT would kill all 30 runs at once, and asking for more wall time costs
+# nothing, so the request is generous rather than tight.
 # ==============================================================================
 
 project="/projects/users/${USER}/marl-cluster"
