@@ -1,0 +1,51 @@
+# One line per run. Blank lines and # comments are ignored.
+# Columns:  ARM  MAP  OBS_SLICE  STEPS  SEED  TEST_INTERVAL
+#
+# Five seeds on the two scenarios that discriminate. 3m is excluded: every arm
+# sits at the ceiling there (0.9944 / 0.9919 / 0.9981 on seed 1), so seeds buy
+# nothing.
+#
+# All five seeds are run fresh rather than reusing the local seed-1 set from
+# 2026-11-24. Those predate the q_learner fix for the unmasked rew_ms update, so
+# mixing them with post-fix seeds would compare across two code versions.
+#
+# Settings match the local set otherwise: use_rnn=True, use_cuda=False,
+# test_nepisode=32, sm_bonus_scaling=relative, sm_count_mode=per_agent,
+# sm_combine=minimum, sm_select_beta=0.1, sm_hash_dim=16, anneal over the full
+# budget, dense reward.
+#
+# OBS_SLICE: "-" baseline (mechanism off); "all" hashes the whole observation;
+# 4:34 is the verified enemy block on both of these scenarios (5m_vs_6m has 6
+# enemies x 5 features, 3s_vs_5z has 5 x 6 because Protoss carry a shield).
+
+baseline    5m_vs_6m  -     10050000  1  50000
+allfeat     5m_vs_6m  all   10050000  1  50000
+chosenfeat  5m_vs_6m  4:34  10050000  1  50000
+baseline    5m_vs_6m  -     10050000  2  50000
+allfeat     5m_vs_6m  all   10050000  2  50000
+chosenfeat  5m_vs_6m  4:34  10050000  2  50000
+baseline    5m_vs_6m  -     10050000  3  50000
+allfeat     5m_vs_6m  all   10050000  3  50000
+chosenfeat  5m_vs_6m  4:34  10050000  3  50000
+baseline    5m_vs_6m  -     10050000  4  50000
+allfeat     5m_vs_6m  all   10050000  4  50000
+chosenfeat  5m_vs_6m  4:34  10050000  4  50000
+baseline    5m_vs_6m  -     10050000  5  50000
+allfeat     5m_vs_6m  all   10050000  5  50000
+chosenfeat  5m_vs_6m  4:34  10050000  5  50000
+
+baseline    3s_vs_5z  -     10050000  1  50000
+allfeat     3s_vs_5z  all   10050000  1  50000
+chosenfeat  3s_vs_5z  4:34  10050000  1  50000
+baseline    3s_vs_5z  -     10050000  2  50000
+allfeat     3s_vs_5z  all   10050000  2  50000
+chosenfeat  3s_vs_5z  4:34  10050000  2  50000
+baseline    3s_vs_5z  -     10050000  3  50000
+allfeat     3s_vs_5z  all   10050000  3  50000
+chosenfeat  3s_vs_5z  4:34  10050000  3  50000
+baseline    3s_vs_5z  -     10050000  4  50000
+allfeat     3s_vs_5z  all   10050000  4  50000
+chosenfeat  3s_vs_5z  4:34  10050000  4  50000
+baseline    3s_vs_5z  -     10050000  5  50000
+allfeat     3s_vs_5z  all   10050000  5  50000
+chosenfeat  3s_vs_5z  4:34  10050000  5  50000

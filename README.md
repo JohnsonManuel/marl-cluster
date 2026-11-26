@@ -200,6 +200,38 @@ the spread of whatever the action selector adds it to and rescales novelty
 across the available actions. Measured after the change: the bonus is about 5%
 of the value spread and grows with it, rather than vanishing.
 
+## QMIX seed runs
+
+`slurm/qmix_seeds.slurm` runs the comparison that turns the single-seed result of
+2026-11-24 into a defensible one: **5 seeds x 3 arms x 2 scenarios = 30 runs.**
+
+```bash
+sbatch slurm/qmix_seeds.slurm
+bash scripts/collect_qmix_seeds.sh      # mean and std across seeds
+```
+
+`3m` is excluded. Every arm is at the ceiling there (0.9944 / 0.9919 / 0.9981 on
+seed 1), so seeds add nothing.
+
+**All five seeds are run fresh** rather than reusing the local seed-1 set. Those
+predate the `q_learner` fix for the unmasked `rew_ms` update, so mixing them with
+post-fix seeds would compare across two code versions.
+
+### Why one job across both nodes
+
+The QOS permits one job per user, so 30 separate jobs would run strictly
+sequentially -- more than ten days. This is a single job holding both nodes with
+15 concurrent runs each: 24 CPUs and 62 GB per node gives ~1.6 cores and ~2.5 GB
+per run, matching what ran comfortably locally (9 runs on 16 cores, 23 GB peak).
+Each node takes one scenario, so contention is identical across arms and seeds
+within a map.
+
+No GPU is requested: QMIX measured 213 steps/s on CPU against 161 on GPU, every
+step returns to the CPU for the StarCraft engine regardless, and skipping
+`--gres` leaves the GPUs free and schedules sooner.
+
+Expect 24-30 h. `--time` is 2 days against a 5-day partition limit.
+
 ## Monitoring from outside the university network
 
 krull has a private university IP and cannot be reached from home, so logs
